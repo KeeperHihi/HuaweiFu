@@ -284,17 +284,20 @@ struct Disk {
 		int idx = 0;
 
 		int tot = accumulate(query_times.begin(), query_times.end(), 0);
-		int start = 0;
-		for (int i = 1; i <= MAX_TAG; i++) {
-			int cnt = (USE_SIZE) * 1. * query_times[i] / tot;
-			int c = cnt;
-			while (cnt-- && idx < USE_SIZE) {
-				color_tag[idx++] = i;
+		for (int i = 0; i < (MAX_HEAD_NUM); i++) {
+			int start = range[i].first;
+			for (int i = 1; i <= MAX_TAG; i++) {
+				int cnt = (USE_SIZE / (MAX_HEAD_NUM)) * 1. * query_times[i] / tot;
+				int c = cnt;
+				while (cnt-- && idx < USE_SIZE) {
+					color_tag[idx++] = i;
+				}
+				block.push_back({start, c});
+				start += c;
 			}
-			block.push_back({start, c});
-			start += c;
+			score.resize(block.size());
 		}
-		score.resize(block.size());
+
 		return;
 
 		for (int i = 0; i < color_type.size(); i++) {

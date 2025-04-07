@@ -18,7 +18,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 #define UPDATE_DISK_SCORE_FREQUENCY (10)
@@ -26,14 +26,16 @@ using namespace std;
 #define BLOCK_NUM (60)
 const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define LOCK_UNITS (BLOCK_SIZE) // 很重要的一个参数，但不知道为啥!!!!!
-#define LOCK_TIMES (LOCK_UNITS / (272 / 16))
+// #define LOCK_TIMES (LOCK_UNITS / (272 / 16))
+#define LOCK_TIMES (50)
 #else
 #define UPDATE_DISK_SCORE_FREQUENCY (10)
 #define MAX_DISK_SIZE (16384)
 #define BLOCK_NUM (110) // 这个参数调大一点可能会变好，比如 20
 const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define LOCK_UNITS (BLOCK_SIZE)
-#define LOCK_TIMES (LOCK_UNITS / (340 / 16))
+// #define LOCK_TIMES (LOCK_UNITS / (340 / 16))
+#define LOCK_TIMES (50)
 #endif
 
 // BLOCK_NUM = 20
@@ -66,7 +68,7 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define MAX_DISK_NUM (10)
 
 // #define JUMP_FREQUENCY (8)
-#define JUMP_BIAS (LOCK_TIMES + 3)
+#define JUMP_BIAS (LOCK_TIMES)
 
 #define MAX_QUERY_TIME (105)
 #define MAX_HEAD_NUM (2)
@@ -79,14 +81,14 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define MAX_WRITE_LEN (100005)
 #define INF (1000000000)
 #define EPS (1e-6)
-#define PREDICT (2) // 没道理，因为一轮扫不到一块
 
 #define DROP_SCORE (0)
 #define DECIDE_CONTINUE_READ (10)
 #define TRASH_PERPORTION (0)
 
 #define EXTRA_BLOCK (1000)
-#define USE_SIZE (MAX_DISK_SIZE / 3 + EXTRA_BLOCK)
+#define USE_SIZE (MAX_DISK_SIZE / 3 + EXTRA_BLOCK) // [0, USE_SIZE - 1]
+#define PREDICT (4) // 当前位置往前看多少个颜色块的得分
 
 #define PUNISH_WEIGHT (100)
 
@@ -228,10 +230,10 @@ struct Disk {
 	vector<int> has_tag;
 	int color_tag[MAX_DISK_SIZE];
 	vector<int> color_type;
-	float score[BLOCK_NUM];
 	vector<int> head;
 	vector<pair<int, int>> range;
 	vector<pair<int, int>> block;
+	vector<float> score;
 	int siz = 0;
 	int disk_id = 0;
 	vector<int> max_score_pos; // 每个 range 里的价值最大块位置
@@ -266,8 +268,8 @@ struct Disk {
 			tot += cnt;
 		}
 		int split = USE_SIZE; // ------------------------
-		range[0] = {0, split / 2};
-		range[1] = {split / 2 + 1, split};
+		range[0] = {0, split / 2 - 1};
+		range[1] = {split / 2, split - 1};
 	}
 	int size() {
 		return siz;
@@ -321,12 +323,14 @@ struct Disk {
 		int start = 0;
 		for (int i = 1; i <= MAX_TAG; i++) {
 			int cnt = (USE_SIZE) * 1. * query_times[i] / tot;
+			int c = cnt;
 			while (cnt-- && idx < USE_SIZE) {
 				color_tag[idx++] = i;
 			}
-			block.push_back({start, cnt});
-			start += cnt;
+			block.push_back({start, c});
+			start += c;
 		}
+		score.resize(block.size());
 		return;
 
 		for (int i = 0; i < color_type.size(); i++) {
@@ -365,68 +369,93 @@ struct Disk {
 		// }
 	}
 
-	void Cal_Current_Score() {
+	// 以及染色为什么不只考虑分配 query_times 个？？？
+	void Cal_Current_Score() { // 待修改------------------------------------------------------------------------------
 		for (int head_idx = 0; head_idx < MAX_HEAD_NUM; head_idx++) {
+			set<int> cnt;
 			cur_score[head_idx] = 0;
 			int i = head[head_idx];
 			// char pre_mov = pre_move[disk_id];
 			// int pre_cos = pre_cost[disk_id];
-			for (int t = timestamp; t < timestamp + PREDICT; t++) {
-				// auto [score, idx] = Simulate(disk_id, i, t, pre_mov, pre_cos);
-				// i = idx;
-				// cur_score[head_idx] += score;
-				for (int cnt = BLOCK_SIZE; cnt--; i = (i + 1) % V) {
-					cur_score[head_idx] += Get_Pos_Score(disk_id, i, t);
-				}
+			while (cnt.size() <= 4) { // 当前位置往前走 n 种颜色的总价值 v.s. 某一种颜色的价值
+				cur_score[head_idx] += Get_Pos_Score(disk_id, i, timestamp);
+				cnt.insert(color_tag[i]);
+				i = (i + 1) % USE_SIZE;
 			}
+			// for (int t = timestamp; t < timestamp + PREDICT; t++) {
+			// 	// auto [score, idx] = Simulate(disk_id, i, t, pre_mov, pre_cos);
+			// 	// i = idx;
+			// 	// cur_score[head_idx] += score;
+			// 	for (int cnt = BLOCK_SIZE; cnt--; i = (i + 1) % V) {
+			// 		cur_score[head_idx] += Get_Pos_Score(disk_id, i, t);
+			// 	}
+			// }
 		}
 	}
 
 	void Cal_Max_Score() {
 		for (int head_id = 0; head_id < MAX_HEAD_NUM; head_id++) {
 			max_score[head_id] = -1;
-			int block = -1;
-			for (int i = 0; i < BLOCK_NUM; i++) {
-				if (i * BLOCK_SIZE < range[head_id].first || (i + 1) * BLOCK_SIZE - 1 > range[head_id].second) {
+			max_score_pos[head_id] = -1;
+			for (int i = 0; i < block.size(); i++) {
+				auto [start, units] = block[i];
+				if (start < range[head_id].first || start + units - 1 > range[head_id].second) {
 					continue;
 				}
 				if (score[i] > max_score[head_id]) {
 					max_score[head_id] = score[i];
-					block = i;
+					max_score_pos[head_id] = start;
 				}
 			}
-			assert(block != -1);
-			max_score_pos[head_id] = block * BLOCK_SIZE;
-			while (d[max_score_pos[head_id]].first == -1) {
-				max_score_pos[head_id] = (max_score_pos[head_id] + 1) % V;
-			}
+			// int block = -1;
+			// for (int i = 0; i < BLOCK_NUM; i++) {
+			// 	if (i * BLOCK_SIZE < range[head_id].first || (i + 1) * BLOCK_SIZE - 1 > range[head_id].second) {
+			// 		continue;
+			// 	}
+			// 	if (score[i] > max_score[head_id]) {
+			// 		max_score[head_id] = score[i];
+			// 		block = i;
+			// 	}
+			// }
+			// assert(block != -1);
+			// max_score_pos[head_id] = block * BLOCK_SIZE;
+			// while (d[max_score_pos[head_id]].first == -1) {
+			// 	max_score_pos[head_id] = (max_score_pos[head_id] + 1) % V;
+			// }
 		}
 	}
 	
 	void Cal_Block_Score() {
-		for (int block = 0; block < BLOCK_NUM; block++) {
-			int i = block * BLOCK_SIZE;
-			float sc = 0;
-			char pre_mov = 'j';
-			int pre_cos = 0;
-			for (int t = timestamp; t < timestamp + PREDICT; t++) {
-				// auto [score, idx] = Simulate(disk_id, i, t, pre_mov, pre_cos);
-				// i = idx;
-				// sc += score;
-				for (int cnt = BLOCK_SIZE; cnt--; i = (i + 1) % V) {
-					sc += Get_Pos_Score(disk_id, i, t);
-				}
+		for (int i = 0; i < block.size(); i++) {
+			score[i] = 0;
+			auto [start, units] = block[i];
+			for (int j = start; units--; j++) {
+				score[i] += Get_Pos_Score(disk_id, j, timestamp);
 			}
-			score[block] = sc;
-
-			// int l = block * BLOCK_SIZE;
-			// int r = l + BLOCK_SIZE - 1;
-			// float sc = 0;
-			// for (int i = l; i <= r; i++) {
-			// 	sc += Get_Pos_Score(disk_id, i, timestamp);
-			// }
-			// score[block] = sc;
 		}
+	// 	for (int block = 0; block < BLOCK_NUM; block++) {
+	// 		int i = block * BLOCK_SIZE;
+	// 		float sc = 0;
+	// 		char pre_mov = 'j';
+	// 		int pre_cos = 0;
+	// 		for (int t = timestamp; t < timestamp + PREDICT; t++) {
+	// 			// auto [score, idx] = Simulate(disk_id, i, t, pre_mov, pre_cos);
+	// 			// i = idx;
+	// 			// sc += score;
+	// 			for (int cnt = BLOCK_SIZE; cnt--; i = (i + 1) % V) {
+	// 				sc += Get_Pos_Score(disk_id, i, t);
+	// 			}
+	// 		}
+	// 		score[block] = sc;
+
+	// 		// int l = block * BLOCK_SIZE;
+	// 		// int r = l + BLOCK_SIZE - 1;
+	// 		// float sc = 0;
+	// 		// for (int i = l; i <= r; i++) {
+	// 		// 	sc += Get_Pos_Score(disk_id, i, timestamp);
+	// 		// }
+	// 		// score[block] = sc;
+	// 	}
 	}
 	void Cal_Score() {	    // 计算走 PREDICT - 1 个块的价值
 		Cal_Block_Score();
@@ -1128,13 +1157,6 @@ void Write_Action() {
 		for (auto [obj_id, obj_size] : vec) {
 			vector<pair<int, int>> write_disk;
 			write_disk = Decide_Write_disk(obj_id, obj_size, obj_tag);
-
-			if (timestamp == 59305) {
-				cerr << obj_id << ' ' << obj_size << ' ' << obj_tag << endl;
-				for (auto [a, b] : write_disk) {
-					cerr << a << ' ' << b << endl;
-				}
-			}
 			
 			// if (!priority_pos[obj_tag][obj_size].empty()) {
 			// 	write_disk = Get_Priority_Disk(obj_tag, obj_size);
@@ -1225,6 +1247,8 @@ void Write_Action() {
 
 // ------------------------------------ 读取 ----------------------------------------
 
+int error_cnt = 0;
+
 void Read_Action() {
 	int n_read;
 	cin >> n_read;
@@ -1248,8 +1272,9 @@ void Read_Action() {
 		for (int j = 0; j < REP_NUM; j++) {
 			mi = min(mi, objects[obj_id].unit[j]);
 		}
-		if (mi >= USE_SIZE - objects[obj_id].size + 2) {
+		if (mi >= USE_SIZE - objects[obj_id].size + 1) {
 			waste_qid.push(qry_id);
+			error_cnt++;
 			continue;
 		}
 		query[obj_id].insert(qry_id);
@@ -1271,11 +1296,13 @@ void Process(int i) {
 
 void Lock(int disk_id, int head_id, bool all_color, int lock_num, int lock_last) {
 	if (all_color) {
-		for (int cnt = lock_num, idx = disk[disk_id].head[head_id]; cnt--; idx = (idx + 1) % V) {
-			int obj_id = disk[disk_id].d[idx].first;
+		int head = disk[disk_id].head[head_id];
+		for (int i = head; disk[disk_id].color_tag[i] == disk[disk_id].color_tag[head]; i++) {
+			int obj_id = disk[disk_id].d[i].first;
 			if (obj_id == -1) continue;
 			objects[obj_id].lock = {disk_id, head_id}; // here
 			objects[obj_id].lock_time = timestamp;
+			objects[obj_id].lock_last = lock_last; // 即便是锁所有的颜色，也不能允许锁太久！
 		}
 		return;
 	}
@@ -1429,11 +1456,11 @@ bool decide_give_up(int qry_id) {
 }
 
 int jump_cnt = 0;
+int extra_jump_cnt = 0;
 int drop = 0;
 int continue_cnt = 0;
 float punish_score = 0;
 int exchange_cnt = 0;
-int error_cnt = 0;
 
 void show(string name, int &cnt, string type) {
 	if (type == "%") {
@@ -1471,9 +1498,14 @@ int Jump_to(int disk_id, int pos) {
 }
 
 void Move() {
+	#ifdef DEBUG
+	if (timestamp % 1800 == 0) cerr << endl;
 	show("punish_score", punish_score);
 	show("jump_cnt", jump_cnt, "%");
+	show("extra_jump_cnt", extra_jump_cnt, "%");
 	show("error_cnt", error_cnt, "");
+	#endif
+	
 	vector<int> finish_qid;
 	if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && timestamp >= 10) {
 		// for (int i = 0; i < N; i++) {
@@ -1591,28 +1623,20 @@ void Move() {
 	
 			// 方案一：比较往前走两个块根跳转在走一个块的价值决定是否 jump
 			// if (disk[i].cur_score < disk[i].max_score && Random_Appear(JUMP_FREQUENCY) && timestamp - pre_jump[i] > JUMP_BIAS) {
-			if (disk[i].cur_score[head_id] * 2 < disk[i].max_score[head_id] && timestamp - pre_jump[i][head_id] > JUMP_BIAS && locate_in(disk[i].max_score_pos[head_id], disk[i].range[head_id])) {
-				int jump_to = disk[i].max_score_pos[head_id];
-				int help = BLOCK_SIZE;
-				while (help-- && Get_Pos_Score(i, jump_to, timestamp + 1) <= DROP_SCORE) {
-					// cerr << i << ' ' << jump_to << endl;
-					jump_to = (jump_to + 1) % V;
-				}
-				if (help == 0) {
-					goto not_jump;
-				}
+			if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && disk[i].cur_score[head_id] < disk[i].max_score[head_id] && timestamp - pre_jump[i][head_id] > JUMP_BIAS) {
+				assert(locate_in(disk[i].max_score_pos[head_id], disk[i].range[head_id]));
+				int jump_to = Jump_to(i, disk[i].max_score_pos[head_id]);
 				jump_cnt++;
+				extra_jump_cnt++;
 				disk[i].head[head_id] = jump_to;
 				moves[i][head_id] = "j " + to_string(jump_to + 1);
 				pre_move[i][head_id] = 'j';
 				pre_cost[i][head_id] = 0;
-				Lock(i, head_id, false, LOCK_UNITS, LOCK_TIMES);
+				Lock(i, head_id, true, LOCK_UNITS, LOCK_TIMES);
 				pre_jump[i][head_id] = timestamp;
 				pre_decide[i][head_id] = false;
 				continue;
 			}
-
-			not_jump:
 
 			// 方案二：每个磁头固定扫描的区域
 			if (!locate_in(disk[i].head[head_id], disk[i].range[head_id])) {
@@ -1622,7 +1646,7 @@ void Move() {
 				moves[i][head_id] = "j " + to_string(jump_to + 1);
 				pre_move[i][head_id] = 'j';
 				pre_cost[i][head_id] = 0;
-				Lock(i, head_id, false, LOCK_UNITS, LOCK_TIMES);
+				Lock(i, head_id, true, LOCK_UNITS, LOCK_TIMES); // 被迫跳回来之后应该上锁吗？
 				pre_jump[i][head_id] = timestamp;
 				pre_decide[i][head_id] = false;
 				continue;
@@ -1761,11 +1785,6 @@ void Move() {
 						mi = min(mi, objects[obj_id].unit[i]);
 						// cerr << objects[obj_id].bel[i] << ' ' << objects[obj_id].unit[i] << ' ' << objects[obj_id].tag << endl;
 					}
-					if (mi > USE_SIZE) {
-						error_cnt++;
-					}
-					// assert(error_cnt == 0);
-					// assert(mi <= USE_SIZE);
 				}
 				requests[qry_id].is_give_up = true;
 				query_per_time[size].pop();
@@ -2013,15 +2032,6 @@ int main() {
 	Pre_Process();
 	for (int i = 1; i <= T + 105; i++) {
 		timestamp = i;
-		if (i == T + 104) {
-			ofstream fout("haha.txt");
-			fout << "{";
-			for (auto qid : haha_qid) {
-				fout << qid << ", ";
-			}
-			fout << "};\n";
-			fout << endl;
-		}
 		TimeStamp();
 		Solve();
 	}

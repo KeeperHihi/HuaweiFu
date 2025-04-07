@@ -21,7 +21,7 @@ using namespace std;
 // #define DEBUG
 
 #ifdef DEBUG
-#define UPDATE_DISK_SCORE_FREQUENCY (10)
+#define UPDATE_DISK_SCORE_FREQUENCY (10000000)
 #define MAX_DISK_SIZE (13136)
 #define BLOCK_NUM (60)
 const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
@@ -29,7 +29,7 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 // #define LOCK_TIMES (LOCK_UNITS / (272 / 16))
 #define LOCK_TIMES (50)
 #else
-#define UPDATE_DISK_SCORE_FREQUENCY (10)
+#define UPDATE_DISK_SCORE_FREQUENCY (10000000)
 #define MAX_DISK_SIZE (16384)
 #define BLOCK_NUM (110) // 这个参数调大一点可能会变好，比如 20
 const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;

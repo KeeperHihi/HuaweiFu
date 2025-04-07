@@ -9,6 +9,11 @@
 // 锁机制，对于当前这个磁头即将读取的一部分 obj，我认为这就是它认定的东西，别人考虑分数的时候就不应该再计算这些 obj 的得分了！
 // 存放 obj 的时候，优先放到当前磁头的前方？便于快速读取到
 
+// 分块必须要改，或者就跳转到颜色初始，或者分一个块为 token / 16
+// USE_SIZE 是非常重要的参数，要认真考虑
+// 是否有必要每个盘都 16 种颜色？8 - 8 分会不会更好？
+// 垃圾回收机制要认证改进
+
 
 #include <bits/stdc++.h>
 using namespace std;
@@ -79,7 +84,9 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define DROP_SCORE (0)
 #define DECIDE_CONTINUE_READ (10)
 #define TRASH_PERPORTION (0)
-#define EXTRA_BLOCK (50)
+
+#define EXTRA_BLOCK (1000)
+#define USE_SIZE (MAX_DISK_SIZE / 3 + EXTRA_BLOCK)
 
 #define PUNISH_WEIGHT (100)
 
@@ -216,6 +223,7 @@ pair<float, int> Simulate(int disk_id, int idx, int time, char &pre_mov, int &pr
 
 struct Disk {
 	pair<int, int> d[MAX_DISK_SIZE];
+	bool flag[MAX_DISK_SIZE];
 	set<int> space[MAX_SIZE + 1];
 	vector<int> has_tag;
 	int color_tag[MAX_DISK_SIZE];
@@ -223,6 +231,7 @@ struct Disk {
 	float score[BLOCK_NUM];
 	vector<int> head;
 	vector<pair<int, int>> range;
+	vector<pair<int, int>> block;
 	int siz = 0;
 	int disk_id = 0;
 	vector<int> max_score_pos; // 每个 range 里的价值最大块位置
@@ -242,6 +251,7 @@ struct Disk {
 		for (int i = 0; i < MAX_DISK_SIZE; i++) {
 			d[i] = {-1, -1};
 			color_tag[i] = -1;
+			flag[i] = false;
 		}
 
 		static int idx = 0;
@@ -255,9 +265,9 @@ struct Disk {
 		for (auto [tag, cnt] : color_init[disk_id]) {
 			tot += cnt;
 		}
-		int split = V;
-		range[0] = {0, split / 2 - 1};
-		range[1] = {split / 2, split - 1};
+		int split = USE_SIZE; // ------------------------
+		range[0] = {0, split / 2};
+		range[1] = {split / 2 + 1, split};
 	}
 	int size() {
 		return siz;
@@ -265,7 +275,7 @@ struct Disk {
 	bool capacity(int obj_tag, int obj_size, int is_limit) {
 		bool cap = 0;
 		if (is_limit == -1) {
-			for (int i = 0; i < V - obj_size; i++) {
+			for (int i = 0; i <= V - obj_size; i++) {
 				if (color_tag[i] != obj_tag || d[i].first != -1) continue;
 				bool ok = 1;
 				for (int j = i + 1; j < i + obj_size; j++) {
@@ -277,7 +287,7 @@ struct Disk {
 			}
 		} else {
 			assert(is_limit == -2);
-			for (int i = 0; i < V - obj_size; i++) {
+			for (int i = 0; i <= V - obj_size; i++) {
 				if (d[i].first != -1) continue;
 				bool ok = 1;
 				for (int j = i + 1; j < i + obj_size; j++) {
@@ -288,6 +298,7 @@ struct Disk {
 				break;
 			}
 		}
+		// 可以搞个 -3 表示需要无色且 -1
 
 		// is_limit 代表的是是否要强制这个 obj 放在自己 tag 的位置里
 		// if (is_limit == -2) return space[obj_size].size() > 0;
@@ -305,9 +316,30 @@ struct Disk {
 	void Color() {
 
 		int idx = 0;
-		for (auto type : color_type) {
+
+		int tot = accumulate(query_times.begin(), query_times.end(), 0);
+		int start = 0;
+		for (int i = 1; i <= MAX_TAG; i++) {
+			int cnt = (USE_SIZE) * 1. * query_times[i] / tot;
+			while (cnt-- && idx < USE_SIZE) {
+				color_tag[idx++] = i;
+			}
+			block.push_back({start, cnt});
+			start += cnt;
+		}
+		return;
+
+		for (int i = 0; i < color_type.size(); i++) {
+			int type = color_type[i];
+			int tot = 0;
 			for (auto [tag, cnt] : color_init[type]) {
-				cnt += EXTRA_BLOCK;
+				tot += cnt;
+			}
+			for (auto [tag, cnt] : color_init[type]) {
+				if (i == 0) {
+					cnt += EXTRA_BLOCK * 1. * cnt / tot;
+				}
+				// cnt += EXTRA_BLOCK;
 				while (cnt-- && idx < V) {
 					color_tag[idx++] = tag;
 				}
@@ -412,7 +444,7 @@ struct Disk {
 		siz += obj_size;
 		
 		if (is_limit == -1) {
-			for (int i = 0; i < V - obj_size; i++) {
+			for (int i = 0; i <= V - obj_size; i++) {
 				if (color_tag[i] != obj_tag || d[i].first != -1) continue;
 				bool ok = 1;
 				for (int j = i + 1; j < i + obj_size; j++) {
@@ -424,7 +456,8 @@ struct Disk {
 			}
 		} else {
 			assert(is_limit == -2);
-			for (int i = 0; i < V - obj_size; i++) {
+			// for (int i = 0; i < V - obj_size; i++) {
+			for (int i = V - obj_size; i >= 0; i--) {
 				if (d[i].first != -1) continue;
 				bool ok = 1;
 				for (int j = i + 1; j < i + obj_size; j++) {
@@ -436,6 +469,12 @@ struct Disk {
 			}
 		}
 		assert(write_idx != -1);
+
+		flag[write_idx] = true;
+		
+		for (int j = 0; j < obj_size; j++) {
+			assert(d[write_idx + j].first == -1);
+		}
 
 		for (int i = write_idx, size = 0; size < obj_size; i++, size++) {
 			d[i] = {obj_id, size};
@@ -613,6 +652,7 @@ struct Request {
 vector<Request> requests(MAX_REQUEST_NUM + 1); // 使用 vector 是因为静态空间不够了
 vector<queue<int>> query_per_time(MAX_SIZE + 1); // 必须 tmd 使用 vector，不然会莫名其妙莫名其妙的卡死
 // queue<int> query_per_time[MAX_SIZE + 1];
+queue<int> waste_qid;
 
 
 struct Object {
@@ -866,6 +906,7 @@ void Delete_Action() {
 			int block = objects[obj_id].unit[j];
 			// priority_pos[obj_tag][obj_size].push_back({disk_id, block});
 			// disk[disk_id].space[obj_size].insert(block);
+			disk[disk_id].flag[block] = false;
 			for (int size = 0; size < obj_size; size++) {
 				disk[disk_id].erase(block + size);
 			}
@@ -956,6 +997,23 @@ vector<pair<int, int>> Decide_Write_disk(int obj_id, int obj_size, int obj_tag) 
 	// select 用位表示选过的 disk
 	int select = 0;
 	vector<pair<int, int>> write_disk;
+
+	for (int cnt = MAX_DISK_NUM; cnt-- && write_disk.size() < 1; idx = (idx + 1) % N) {
+		if (select >> idx & 1) continue;
+		if (disk[idx].capacity(obj_tag, obj_size, -1)) {
+			write_disk.push_back({idx, -1});
+			select |= 1 << idx;
+		}
+	}
+	for (int cnt = MAX_DISK_NUM; cnt-- && write_disk.size() < REP_NUM; idx = (idx + 1) % N) {
+		if (select >> idx & 1) continue;
+		if (disk[idx].capacity(obj_tag, obj_size, -2)) {
+			write_disk.push_back({idx, -2});
+			select |= 1 << idx;
+		}
+	}
+	assert(write_disk.size() == REP_NUM);
+	return write_disk;
 
 	// 随机分布 -----------------------------------------------------
 	// for (; write_disk.size() < REP_NUM; idx = (idx + 1) % N) {
@@ -1070,6 +1128,14 @@ void Write_Action() {
 		for (auto [obj_id, obj_size] : vec) {
 			vector<pair<int, int>> write_disk;
 			write_disk = Decide_Write_disk(obj_id, obj_size, obj_tag);
+
+			if (timestamp == 59305) {
+				cerr << obj_id << ' ' << obj_size << ' ' << obj_tag << endl;
+				for (auto [a, b] : write_disk) {
+					cerr << a << ' ' << b << endl;
+				}
+			}
+			
 			// if (!priority_pos[obj_tag][obj_size].empty()) {
 			// 	write_disk = Get_Priority_Disk(obj_tag, obj_size);
 			// } else {
@@ -1178,6 +1244,14 @@ void Read_Action() {
 			false,
 			false
 		};
+		int mi = 1e9;
+		for (int j = 0; j < REP_NUM; j++) {
+			mi = min(mi, objects[obj_id].unit[j]);
+		}
+		if (mi >= USE_SIZE - objects[obj_id].size + 2) {
+			waste_qid.push(qry_id);
+			continue;
+		}
 		query[obj_id].insert(qry_id);
 		query_per_time[objects[obj_id].size].push(qry_id);
 	}
@@ -1359,6 +1433,7 @@ int drop = 0;
 int continue_cnt = 0;
 float punish_score = 0;
 int exchange_cnt = 0;
+int error_cnt = 0;
 
 void show(string name, int &cnt, string type) {
 	if (type == "%") {
@@ -1398,7 +1473,7 @@ int Jump_to(int disk_id, int pos) {
 void Move() {
 	show("punish_score", punish_score);
 	show("jump_cnt", jump_cnt, "%");
-	show("exchange_cnt", exchange_cnt, "");
+	show("error_cnt", error_cnt, "");
 	vector<int> finish_qid;
 	if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && timestamp >= 10) {
 		// for (int i = 0; i < N; i++) {
@@ -1656,6 +1731,10 @@ void Move() {
 	}
 	// 处理放弃的请求
 	vector<int> give_up_qid;
+	while (!waste_qid.empty()) {
+		give_up_qid.emplace_back(waste_qid.front());
+		waste_qid.pop();
+	}
 	for (int size = 1; size <= MAX_SIZE; size++) {
 		while (!query_per_time[size].empty()) {
 			auto qry_id = query_per_time[size].front();
@@ -1667,6 +1746,27 @@ void Move() {
 			if (decide_give_up(qry_id)) {
 				punish_score += Punish_Function(query_time, timestamp, objects[requests[qry_id].obj_id].size);
 				give_up_qid.push_back(qry_id);
+				{
+					static vector<int> punish_cnt(MAX_TAG + 1);
+					int obj_id = requests[qry_id].obj_id;
+					punish_cnt[objects[obj_id].tag]++;
+					if (timestamp % 1800 == 0) {
+						// for (int i = 1; i <= MAX_TAG; i++) {
+						// 	cerr << punish_cnt[i] << " ";
+						// }
+						// cerr << endl;
+					}
+					int mi = 1e9;
+					for (int i = 0; i < REP_NUM; i++) {
+						mi = min(mi, objects[obj_id].unit[i]);
+						// cerr << objects[obj_id].bel[i] << ' ' << objects[obj_id].unit[i] << ' ' << objects[obj_id].tag << endl;
+					}
+					if (mi > USE_SIZE) {
+						error_cnt++;
+					}
+					// assert(error_cnt == 0);
+					// assert(mi <= USE_SIZE);
+				}
 				requests[qry_id].is_give_up = true;
 				query_per_time[size].pop();
 			} else {
@@ -1692,22 +1792,54 @@ void garbage_collection() {
 	for (int i = 0; i < N; i++) {
 		vector<pair<int, int>> exchange;
 		int token = K;
-		for (int j = 0; j < V; j++) {
-			if (disk[i].d[j].first == -1) continue;
+		for (int j = 0; j < V - 4; ) {
+			if (!disk[i].flag[j]) {
+				j++;
+				continue;
+			}
+			if (disk[i].d[j].first == -1) {
+				j++;
+				continue;
+			}
+			if (j) {
+				if (disk[i].d[j].first == disk[i].d[j - 1].first) {
+					cerr << "HHHHHHHHHHHHHHHHHHHHHHHHHH" << endl;
+					cerr << disk[i].flag[j - 1] << ' ' << disk[i].flag[j] << endl;
+					cerr << disk[i].d[j - 1].first << " " << disk[i].d[j].first << endl;
+				}
+				assert(disk[i].d[j].first != disk[i].d[j - 1].first);
+			}
 			auto [obj_id, obj_part] = disk[i].d[j];
 			int obj_tag = objects[obj_id].tag;
 			int obj_size = objects[obj_id].size;
-			if (obj_size > token) continue;
-			if (disk[i].color_tag[j] == obj_tag) continue;
+			if (disk[i].color_tag[j] == -1) {
+				j += obj_size;
+				continue;
+			}
+			if (obj_size > token) {
+				j += obj_size;
+				continue;
+			}
+			if (disk[i].color_tag[j] == obj_tag) {
+				j += obj_size;
+				continue;
+			}
 
 			int change_to = -1;
 			for (int k = (j + obj_size) % V, cnt = V; cnt--; k = (k + 1) % V) {
+				if (!disk[i].flag[k]) continue;
 				if (disk[i].d[k].first == -1) continue;
 				auto [cur_obj_id, cur_obj_part] = disk[i].d[k];
 				int cur_obj_tag = objects[cur_obj_id].tag;
 				int cur_obj_size = objects[cur_obj_id].size;
-				if (cur_obj_size != obj_size) continue;
-				if (cur_obj_tag == disk[i].color_tag[k]) continue;
+				if (cur_obj_size != obj_size) {
+					k += obj_size - 1;
+					continue;
+				}
+				if (cur_obj_tag == disk[i].color_tag[k]) {
+					k += obj_size - 1;
+					continue;
+				}
 				if (cur_obj_tag == disk[i].color_tag[j]) {
 					change_to = k;
 					break;
@@ -1729,7 +1861,10 @@ void garbage_collection() {
 					}
 				}
 			}
-			if (change_to == -1) continue;
+			if (change_to == -1) {
+				j += obj_size;
+				continue;
+			}
 			token -= obj_size;
 			for (int p = 0; p < REP_NUM; p++) {
 				if (objects[obj_id].bel[p] == i) {
@@ -1737,20 +1872,37 @@ void garbage_collection() {
 					break;
 				}
 			}
+			assert(disk[i].flag[j]);
+			disk[i].flag[change_to] = true;
 			if (disk[i].d[change_to].first != -1) {
+				assert(disk[i].flag[change_to]);
+				disk[i].flag[j] = true;
 				for (int p = 0; p < REP_NUM; p++) {
 					if (objects[disk[i].d[change_to].first].bel[p] == i) {
 						objects[disk[i].d[change_to].first].unit[p] = j;
 						break;
 					}
 				}
+			} else {
+				disk[i].flag[j] = false;
 			}
+			// if (i == 3) {
+			// 	cerr << "####" << j << ' ' << change_to << ' ' << obj_size << ' ' << disk[i].d[change_to].first << endl;
+			// 	for (int k = 0; k < obj_size; k++) {
+			// 		cerr << disk[i].d[j + k].first << ' ';
+			// 	}
+			// 	cerr << endl;
+			// 	for (int k = 0; k < obj_size; k++) {
+			// 		cerr << disk[i].d[change_to + k].first << ' ';
+			// 	}
+			// 	cerr << endl;
+			// }
 			for (int k = 0; k < obj_size; k++) {
 				int a = (j + k) % V, b = (change_to + k) % V;
 				exchange.push_back({a, b});
 				swap(disk[i].d[a], disk[i].d[b]);
 			}
-			j += obj_size - 1;
+			j += obj_size;
 		}
 		exchange_cnt += exchange.size();
 		cout << exchange.size() << "\n";

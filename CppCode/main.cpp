@@ -18,7 +18,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define UPDATE_DISK_SCORE_FREQUENCY (10000000)
@@ -1533,9 +1533,9 @@ void Move() {
 	
 	// for (int i = 0; i < N; i++) {
 	for (auto i : pos) {
-		if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && timestamp >= 10) {
-			Process(i);
-		}
+		// if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && timestamp >= 10) {
+		// 	Process(i);
+		// }
 
 		// 方案零：每次更新完考虑跳跃
 		// if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && disk[i].cur_score < disk[i].max_score && Random_Appear(JUMP_FREQUENCY)) {

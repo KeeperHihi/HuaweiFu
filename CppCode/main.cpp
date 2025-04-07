@@ -35,32 +35,8 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define LOCK_UNITS (BLOCK_SIZE)
 // #define LOCK_TIMES (LOCK_UNITS / (340 / 16))
-#define LOCK_TIMES (50)
+#define LOCK_TIMES (70)
 #endif
-
-// BLOCK_NUM = 20
-// LOCK_UNITS = 1800
-// DROP_SCORE = 0.05
-// LOCK_TIMES += 3 = JUMP_BIAS 111
-// BLOCK_NUM = 25 111
-//
-// BLOCK_NUM = 25, LOCK_TIMES += 3 = JUMO_BIAS
-// BLOCK_NUM = 25, LOCK_TIMES += 5 = JUMO_BIAS
-// 莫名其妙 Write
-// Hot_Tag
-// 重新染色
-// PREDICT = 3
-// JUMP_BIAS = LOCK_TIMES + 5
-// LOCK_UNITS = 1650, JUMP_BIAS = LOCK_TIMES + 5
-// LOCK_UNITS = 1650
-// Write, LOCK_UNITS = 1650
-// Write, LOCK_TIMES = /20
-// LOCK_TIMES = /20
-// LOCK_UNITS = 1650
-// LOCK_UNITS = 1750
-// LOCK_UNITS = 1850
-// 1650, BLOCK_NUM = 21, UPDATE_DISK = 8
-// 1638, BLOCK_NUM = 22, UPDATE_DISK = 8
 
 
 #define MAX_TAG (16)
@@ -86,9 +62,9 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define DECIDE_CONTINUE_READ (10)
 #define TRASH_PERPORTION (0)
 
-#define EXTRA_BLOCK (1000)
+#define EXTRA_BLOCK (50)
 #define USE_SIZE (MAX_DISK_SIZE / 3 + EXTRA_BLOCK) // [0, USE_SIZE - 1]
-#define PREDICT (4) // 当前位置往前看多少个颜色块的得分
+#define PREDICT (4) // 当前位置往前看多少个颜色块的得分，这个参数要好好斟酌！！！！！
 
 #define PUNISH_WEIGHT (100)
 

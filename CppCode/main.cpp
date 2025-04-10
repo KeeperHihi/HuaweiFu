@@ -15,6 +15,7 @@
 // 垃圾回收机制要认证改进
 
 
+
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -62,12 +63,13 @@ const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
 #define DECIDE_CONTINUE_READ (10)
 #define TRASH_PERPORTION (0)
 
-#define EXTRA_BLOCK (50)
+#define EXTRA_BLOCK (-250)
 #define USE_SIZE (MAX_DISK_SIZE / 3 + EXTRA_BLOCK) // [0, USE_SIZE - 1]
 #define PREDICT (13) // 当前位置往前看多少个颜色块的得分，这个参数要好好斟酌！！！！！
+#define DANGEROUSE_TIME (200) // 废弃了
 
 #define PUNISH_WEIGHT (100)
-
+#define GIVE_UP_LIMIT (105)
 #define BLOCK_BIAS (5)
 
 #define SEED (11111111)
@@ -100,43 +102,218 @@ vector<int> random_color_sequence = {
 };
 vector<int> color_use(MAX_DISK_NUM, 3);
 
+vector<vector<int>> color_sequence = {
+	{0, },
+	{1, },
+	{2, 10, 11, 13, },
+	{3, 8, },
+	{4, },
+	{5, 14, 15, },
+	{6, },
+	{7, 9, 12, },
+};
+
 #ifdef DEBUG
 vector<vector<pair<int, int>>> color_init = {
 	{
-		{9, 4378},
+		{5, 103},
+		{4, 127},
+		{2, 129},
+		{6, 247},
+		{13, 160},
+		{8, 302},
+		{14, 314},
+		{15, 122},
+		{12, 143},
+		{9, 412},
 	},
 	{
-		{10, 4378},
+		{3, 380},
+		{1, 192},
+		{7, 145},
+		{11, 449},
+		{16, 441},
+		{10, 454},
 	},
 	{
-		{11, 4378},
+		{8, 310},
+		{5, 105},
+		{16, 402},
+		{1, 175},
+		{15, 126},
+		{2, 133},
+		{4, 130},
+		{6, 254},
+		{9, 424},
 	},
 	{
-		{16, 4378},
+		{10, 440},
+		{7, 141},
+		{11, 435},
+		{14, 344},
+		{13, 175},
+		{12, 157},
+		{3, 369},
 	},
 	{
-		{3, 4378},
+		{8, 293},
+		{9, 400},
+		{10, 390},
+		{5, 99},
+		{1, 165},
+		{3, 327},
+		{11, 386},
 	},
 	{
-		{14, 4378},
+		{2, 151},
+		{15, 143},
+		{7, 150},
+		{12, 167},
+		{16, 457},
+		{13, 187},
+		{4, 148},
+		{14, 367},
+		{6, 289},
 	},
 	{
-		{8, 3111},
-		{15, 1266},
+		{4, 132},
+		{5, 106},
+		{8, 313},
+		{14, 326},
+		{13, 166},
+		{11, 413},
+		{9, 428},
+		{1, 177},
 	},
 	{
-		{6, 2877},
-		{7, 1500},
+		{7, 139},
+		{10, 436},
+		{6, 268},
+		{3, 365},
+		{12, 155},
+		{15, 133},
+		{2, 140},
+		{16, 424},
 	},
 	{
-		{1, 1745},
-		{2, 1333},
-		{4, 1298},
+		{16, 442},
+		{2, 146},
+		{3, 381},
+		{7, 145},
+		{15, 138},
+		{9, 466},
+		{8, 341},
 	},
 	{
-		{13, 1721},
-		{12, 1546},
-		{5, 1109},
+		{1, 170},
+		{14, 313},
+		{13, 159},
+		{4, 127},
+		{11, 397},
+		{10, 401},
+		{5, 102},
+		{12, 143},
+		{6, 247},
+	},
+	{
+		{8, 298},
+		{3, 333},
+		{6, 244},
+		{13, 158},
+		{1, 168},
+		{12, 141},
+		{9, 408},
+		{14, 310},
+	},
+	{
+		{10, 460},
+		{4, 145},
+		{2, 148},
+		{15, 140},
+		{11, 455},
+		{7, 147},
+		{5, 117},
+		{16, 447},
+	},
+	{
+		{5, 104},
+		{6, 252},
+		{8, 307},
+		{1, 173},
+		{11, 405},
+		{16, 398},
+		{9, 420},
+	},
+	{
+		{4, 140},
+		{13, 177},
+		{7, 142},
+		{12, 158},
+		{15, 135},
+		{2, 143},
+		{3, 373},
+		{10, 444},
+		{14, 347},
+	},
+	{
+		{6, 265},
+		{9, 442},
+		{3, 361},
+		{11, 426},
+		{10, 431},
+		{4, 136},
+	},
+	{
+		{7, 135},
+		{16, 410},
+		{2, 136},
+		{5, 108},
+		{8, 317},
+		{15, 129},
+		{13, 168},
+		{1, 178},
+		{14, 329},
+		{12, 150},
+	},
+	{
+		{9, 447},
+		{12, 155},
+		{10, 436},
+		{2, 140},
+		{6, 268},
+		{5, 111},
+		{4, 137},
+		{3, 365},
+	},
+	{
+		{1, 177},
+		{13, 166},
+		{15, 127},
+		{7, 133},
+		{14, 326},
+		{8, 313},
+		{11, 413},
+		{16, 406},
+	},
+	{
+		{5, 110},
+		{11, 427},
+		{4, 136},
+		{16, 419},
+		{1, 182},
+		{12, 154},
+		{7, 138},
+		{3, 362},
+		{15, 131},
+	},
+	{
+		{8, 316},
+		{9, 432},
+		{14, 329},
+		{10, 421},
+		{2, 136},
+		{13, 167},
+		{6, 259},
 	},
 };
 #else
@@ -209,12 +386,14 @@ struct Disk {
 	vector<int> head;
 	vector<pair<int, int>> range;
 	vector<pair<int, int>> block;
+	int start_write = 0;
 	vector<float> score;
 	int siz = 0;
 	int disk_id = 0;
 	vector<int> max_score_pos; // 每个 range 里的价值最大块位置
 	vector<float> max_score; // 每个 range 里的价值最大块价值
 	vector<float> cur_score; // 当前位置向前走 PREDICT 个块的价值
+	int use_size = 0;
 	vector<int> working;
 	vector<int> color_start;
 	Disk() { }
@@ -246,47 +425,40 @@ struct Disk {
 		int split = USE_SIZE; 
 		range[0] = {0, split / 2 - 1};
 		range[1] = {split / 2, split - 1};
-	}
-	int size() {
-		return siz;
-	}
-	bool capacity(int obj_tag, int obj_size, int is_limit) {
-
-		bool cap = 0;
-		if (is_limit == -1) {
-			for (int i = 0; i <= V - obj_size; i++) {
-				if (color_tag[i] != obj_tag || d[i].first != -1) continue;
-				bool ok = 1;
-				for (int j = i + 1; j < i + obj_size; j++) {
-					if (color_tag[j] != obj_tag || d[j].first != -1) ok = 0;
-				}	
-				if (!ok) continue;
-				cap = 1;
-				break;
-			}
-		} else {
-			assert(is_limit == -2);
-			int available = 0;
-			for (int i = USE_SIZE; i <= V - obj_size && available < obj_size; i++) {
-				if (d[i].first != -1) continue;
-				available++;
-			}
-			cap = available == obj_size;
-		}
-		
-		// 可以搞个 -3 表示需要无色且 -1
-
-		return cap;
+		// 这里也用垃圾桶？把错误的标签优先放到最后 5%？
 	}
 
 	void Color() {
-
+		
 		int idx = 0;
+		
+		// int tot = 0;
+		// for (int i = 2 * disk_id; i <= 2 * disk_id + 1; i++) {
+		// 	range[i - 2 * disk_id].first = tot;
+		// 	for (auto [tag, cnt] : color_init[i]) {
+		// 		tot += cnt;
+		// 		while (cnt--) {
+		// 			color_tag[idx++] = tag;
+		// 		}
+		// 	}	
+		// 	range[i - 2 * disk_id].second = tot - 1;
+		// }
+		// use_size = range[MAX_HEAD_NUM - 1].second + 1;
+		// return;
 
+
+		use_size = USE_SIZE;
 		int tot = accumulate(query_times.begin(), query_times.end(), 0);
 		for (int i = 0; i < (MAX_HEAD_NUM); i++) {
 			int start = range[i].first;
-			for (int i = 1; i <= MAX_TAG; i++) {
+			vector<int> pos(MAX_TAG + 1);
+			iota(pos.begin(), pos.end(), 0);
+			shuffle(pos.begin() + 1, pos.end(), rng);
+			
+			
+			
+			for (int j = 1; j <= MAX_TAG; j++) {
+				int i = pos[j];
 				int cnt = (USE_SIZE / (MAX_HEAD_NUM)) * 1. * query_times[i] / tot;
 				int c = cnt;
 				while (cnt-- && idx < USE_SIZE) {
@@ -297,25 +469,26 @@ struct Disk {
 			}
 			score.resize(block.size());
 		}
-
 		return;
 
-		for (int i = 0; i < color_type.size(); i++) {
-			int type = color_type[i];
-			int tot = 0;
-			for (auto [tag, cnt] : color_init[type]) {
-				tot += cnt;
-			}
-			for (auto [tag, cnt] : color_init[type]) {
-				if (i == 0) {
-					cnt += EXTRA_BLOCK * 1. * cnt / tot;
-				}
-				// cnt += EXTRA_BLOCK;
-				while (cnt-- && idx < V) {
-					color_tag[idx++] = tag;
-				}
-			}
-		}
+
+
+		// for (int i = 0; i < color_type.size(); i++) {
+		// 	int type = color_type[i];
+		// 	int tot = 0;
+		// 	for (auto [tag, cnt] : color_init[type]) {
+		// 		tot += cnt;
+		// 	}
+		// 	for (auto [tag, cnt] : color_init[type]) {
+		// 		if (i == 0) {
+		// 			cnt += EXTRA_BLOCK * 1. * cnt / tot;
+		// 		}
+		// 		// cnt += EXTRA_BLOCK;
+		// 		while (cnt-- && idx < V) {
+		// 			color_tag[idx++] = tag;
+		// 		}
+		// 	}
+		// }
 		
 		// int tot = 0;
 		// for (auto tag : has_tag) {
@@ -335,6 +508,72 @@ struct Disk {
 		// 	color_tag[i] = y[(i + shift) % V];
 		// }
 	}
+	
+	int size() {
+		return siz;
+	}
+	bool capacity(int obj_tag, int obj_size, int is_limit) {
+
+		bool cap = 0;
+		if (is_limit == -1) {
+			if (start_write == 0) {
+				for (int i = 0; i + obj_size - 1 < use_size / MAX_HEAD_NUM; i++) {
+					if (color_tag[i] != obj_tag || d[i].first != -1) continue;
+					bool ok = 1;
+					for (int j = i + 1; j < i + obj_size; j++) {
+						if (color_tag[j] != obj_tag || d[j].first != -1) ok = 0;
+					}	
+					if (!ok) continue;
+					cap = 1;
+					break;
+				}
+			} else {
+				for (int i = use_size / MAX_HEAD_NUM; i + obj_size - 1 < use_size; i++) {
+					if (color_tag[i] != obj_tag || d[i].first != -1) continue;
+					bool ok = 1;
+					for (int j = i + 1; j < i + obj_size; j++) {
+						if (color_tag[j] != obj_tag || d[j].first != -1) ok = 0;
+					}	
+					if (!ok) continue;
+					cap = 1;
+					break;
+				}
+			}
+		} else if (is_limit == -2) {
+			int available = 0;
+			for (int i = use_size; i <= V - obj_size && available < obj_size; i++) {
+				if (d[i].first != -1) continue;
+				available++;
+			}
+			cap = available == obj_size;
+		} else if (is_limit == -3) {
+			for (int i = 0; i + obj_size - 1 < use_size; i++) {
+				if (d[i].first != -1) continue;
+				bool ok = 1;
+				for (int j = i + 1; j < i + obj_size; j++) {
+					if (d[j].first != -1) ok = 0;
+				}	
+				if (!ok) continue;
+				cap = 1;
+				break;
+			}
+		} else if (is_limit == -4) {
+			for (int i = 0; i + obj_size - 1 < use_size; i++) {
+				if (color_tag[i] != obj_tag || d[i].first != -1) continue;
+				bool ok = 1;
+				for (int j = i + 1; j < i + obj_size; j++) {
+					if (color_tag[j] != obj_tag || d[j].first != -1) ok = 0;
+				}	
+				if (!ok) continue;
+				cap = 1;
+				break;
+			}
+		}
+		
+		// 可以搞个 -3 表示需要无色且 -1
+
+		return cap;
+	}
 
 	// 以及染色为什么不只考虑分配 query_times 个？？？
 	void Cal_Current_Score() { // 待修改------------------------------------------------------------------------------
@@ -347,7 +586,7 @@ struct Disk {
 			while (cnt.size() <= PREDICT) { // 当前位置往前走 n 种颜色的总价值 v.s. 某一种颜色的价值
 				cur_score[head_idx] += Get_Pos_Score(disk_id, i, timestamp);
 				cnt.insert(color_tag[i]);
-				i = (i + 1) % USE_SIZE;
+				i = (i + 1) % use_size;
 			}
 			// for (int t = timestamp; t < timestamp + PREDICT; t++) {
 			// 	// auto [score, idx] = Simulate(disk_id, i, t, pre_mov, pre_cos);
@@ -434,7 +673,49 @@ struct Disk {
 		vector<int> write_idx;
 		siz += obj_size;
 		if (is_limit == -1) {
-			for (int i = 0; i < USE_SIZE; i++) {
+			if (start_write == 0) {
+				for (int i = 0; i + obj_size - 1 < use_size / MAX_HEAD_NUM; i++) {
+					if (color_tag[i] != obj_tag || d[i].first != -1) continue;
+					bool ok = 1;
+					for (int j = i + 1; j < i + obj_size; j++) {
+						if (color_tag[j] != obj_tag || d[j].first != -1) ok = 0;
+					}	
+					if (!ok) continue;
+					write_idx.push_back(i);
+					break;
+				}
+			} else {
+				for (int i = use_size / MAX_HEAD_NUM; i + obj_size - 1 < use_size; i++) {
+					if (color_tag[i] != obj_tag || d[i].first != -1) continue;
+					bool ok = 1;
+					for (int j = i + 1; j < i + obj_size; j++) {
+						if (color_tag[j] != obj_tag || d[j].first != -1) ok = 0;
+					}	
+					if (!ok) continue;
+					write_idx.push_back(i);
+					break;
+				}
+			}
+			start_write = (start_write + 1) % MAX_HEAD_NUM;
+		} else if (is_limit == -2) {
+			for (int i = V - obj_size; i >= use_size && write_idx.size() < obj_size; i--) {
+				if (d[i].first != -1) continue;
+				write_idx.push_back(i);
+			}
+			reverse(write_idx.begin(), write_idx.end());
+		} else if (is_limit == -3) {
+			for (int i = 0; i + obj_size - 1 < use_size; i++) {
+				if (d[i].first != -1) continue;
+				bool ok = 1;
+				for (int j = i + 1; j < i + obj_size; j++) {
+					if (d[j].first != -1) ok = 0;
+				}	
+				if (!ok) continue;
+				write_idx.push_back(i);
+				break;
+			}
+		} else if (is_limit == -4) {
+			for (int i = 0; i + obj_size - 1 < use_size; i++) {
 				if (color_tag[i] != obj_tag || d[i].first != -1) continue;
 				bool ok = 1;
 				for (int j = i + 1; j < i + obj_size; j++) {
@@ -444,13 +725,6 @@ struct Disk {
 				write_idx.push_back(i);
 				break;
 			}
-		} else {
-			assert(is_limit == -2);
-			for (int i = V - obj_size; i >= USE_SIZE && write_idx.size() < obj_size; i--) {
-				if (d[i].first != -1) continue;
-				write_idx.push_back(i);
-			}
-			reverse(write_idx.begin(), write_idx.end());
 		}
 		
 		assert(write_idx.size() == 1 || write_idx.size() == obj_size);
@@ -729,7 +1003,7 @@ float Value_Function(int start_time, int finish_time, int obj_size, int obj_tag)
 		f = 0.;
 	}
 	float score = f * weight[obj_tag];
-	if (finish_time - start_time >= 90) {
+	if (finish_time - start_time >= DANGEROUSE_TIME) {
 		score += (105 - (finish_time - start_time)) / 105. * PUNISH_WEIGHT;
 	}
 	return score;
@@ -786,6 +1060,7 @@ float Get_Pos_Score(int disk_id, int pos, int time) {
 	// for (auto qry : query[obj_id]) {
 	// 	score += Value_Function(requests[qry].query_time, timestamp, obj_size, obj_tag);
 	// }
+	// score /= query[obj_id].size();
 	return score;
 }
 
@@ -1000,6 +1275,20 @@ vector<pair<int, int>> Decide_Write_disk(int obj_id, int obj_size, int obj_tag) 
 		if (select >> idx & 1) continue;
 		if (disk[idx].capacity(obj_tag, obj_size, -1)) {
 			write_disk.push_back({idx, -1});
+			select |= 1 << idx;
+		}
+	}
+	for (int cnt = MAX_DISK_NUM; cnt-- && write_disk.size() < 1; idx = (idx + 1) % N) {
+		if (select >> idx & 1) continue;
+		if (disk[idx].capacity(obj_tag, obj_size, -4)) {
+			write_disk.push_back({idx, -4});
+			select |= 1 << idx;
+		}
+	}
+	for (int cnt = MAX_DISK_NUM; cnt-- && write_disk.size() < 1; idx = (idx + 1) % N) {
+		if (select >> idx & 1) continue;
+		if (disk[idx].capacity(obj_tag, obj_size, -3)) {
+			write_disk.push_back({idx, -3});
 			select |= 1 << idx;
 		}
 	}
@@ -1244,11 +1533,15 @@ void Read_Action() {
 			false,
 			false
 		};
-		int mi = 1e9;
+		// int mi = 1e9;
+		bool give_up = 1;
 		for (int j = 0; j < REP_NUM; j++) {
-			mi = min(mi, objects[obj_id].unit[j][0]);
+			// mi = min(mi, objects[obj_id].unit[j][0]);
+			if (objects[obj_id].unit[j][0] + objects[obj_id].size <= disk[objects[obj_id].bel[j]].use_size) {
+				give_up = 0;
+			}
 		}
-		if (mi >= USE_SIZE - objects[obj_id].size + 1) {
+		if (give_up) {
 			waste_qid.push(qry_id);
 			error_cnt++;
 			continue;
@@ -1338,9 +1631,9 @@ bool decide_continue_read(int disk_id, int head_id) {
 		p_cost = cost;
 		p_move = 'r';
 	}
-	if (X < base) {
-		Lock(disk_id, head_id, false, continue_white + 7, 2);
-	}
+	// if (X < base) {
+	// 	Lock(disk_id, head_id, false, continue_white + 7, 2);
+	// }
 	// cerr << X << ' ' << base << endl;
 	return X < base;
 	
@@ -1429,7 +1722,7 @@ bool decide_give_up(int qry_id) {
 	// float h = (timestamp - query_time) / 105.0;
 	// error_score = g * h;
 	// return error_score >= pos_score;
-	return timestamp - requests[qry_id].query_time == MAX_QUERY_TIME;
+	return timestamp - requests[qry_id].query_time == GIVE_UP_LIMIT;
 }
 
 int jump_cnt = 0;
@@ -1438,6 +1731,9 @@ int drop = 0;
 int continue_cnt = 0;
 float punish_score = 0;
 int exchange_cnt = 0;
+int read_white = 0;
+int read_cnt = 0;
+int pass_cnt = 0;
 
 void show(string name, int &cnt, string type) {
 	if (type == "%") {
@@ -1479,8 +1775,12 @@ void Move() {
 	if (timestamp % 1800 == 0) cerr << endl;
 	show("punish_score", punish_score);
 	show("jump_cnt", jump_cnt, "%");
-	show("extra_jump_cnt", extra_jump_cnt, "%");
+	// show("extra_jump_cnt", extra_jump_cnt, "%");
+	show("exchange_cnt", exchange_cnt, "");
 	show("error_cnt", error_cnt, "");
+	show("read_white", read_white, "");
+	show("read_cnt", read_cnt, "");
+	show("pass_cnt", pass_cnt, "");
 	#endif
 	
 	vector<int> finish_qid;
@@ -1530,12 +1830,24 @@ void Move() {
 		objects[obj_id].lock_time = 0;
 		return is_hit;
 	};
+
+	auto Jump = [&](int disk_id, int head_id) -> void {
+		jump_cnt++;
+		int jump_to = Jump_to(disk_id, disk[disk_id].range[head_id].first);
+		disk[disk_id].head[head_id] = jump_to;
+		moves[disk_id][head_id] = "j " + to_string(jump_to + 1);
+		pre_move[disk_id][head_id] = 'j';
+		pre_cost[disk_id][head_id] = 0;
+		// Lock(disk_id, head_id, true, LOCK_UNITS, LOCK_TIMES); // 被迫跳回来之后应该上锁吗？
+		pre_jump[disk_id][head_id] = timestamp;
+		pre_decide[disk_id][head_id] = false;
+	};
 	
 	// for (int i = 0; i < N; i++) {
 	for (auto i : pos) {
-		// if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && timestamp >= 10) {
-		// 	Process(i);
-		// }
+		if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && timestamp >= 10) {
+			Process(i);
+		}
 
 		// 方案零：每次更新完考虑跳跃
 		// if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0 && disk[i].cur_score < disk[i].max_score && Random_Appear(JUMP_FREQUENCY)) {
@@ -1615,20 +1927,51 @@ void Move() {
 			// 	continue;
 			// }
 
+			// if (disk[i].head[head_id] > disk[i].range[head_id].second - 10) {
+			// 	Jump(i, head_id);
+			// 	continue;
+			// }
+
+			// 方案 1.5: 如果到右边界都是空格子就直接跳到左边界
+			if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0) {
+				bool bound = 1;
+				float last_score = 0;
+				for (int j = disk[i].head[head_id]; j <= disk[i].range[head_id].second; j++) {
+					last_score += Get_Pos_Score(i, j, timestamp);
+					if (last_score > 10) {
+						bound = 0;
+						break;
+					}
+					// if (disk[i].d[j].first != -1) {
+					// 	bound = 0;
+					// 	break;
+					// }
+				}
+				if (bound) {
+					// if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0) {
+					// 	int jump_to = Jump_to(i, disk[i].max_score_pos[head_id]);
+					// 	jump_cnt++;
+					// 	extra_jump_cnt++;
+					// 	disk[i].head[head_id] = jump_to;
+					// 	moves[i][head_id] = "j " + to_string(jump_to + 1);
+					// 	pre_move[i][head_id] = 'j';
+					// 	pre_cost[i][head_id] = 0;
+					// 	// Lock(i, head_id, true, LOCK_UNITS, LOCK_TIMES);
+					// 	pre_jump[i][head_id] = timestamp;
+					// 	pre_decide[i][head_id] = false;
+					// 	continue;
+					// }
+					Jump(i, head_id);
+					continue;
+				}
+			}
+			
 			// 方案二：每个磁头固定扫描的区域
 			if (!locate_in(disk[i].head[head_id], disk[i].range[head_id])) {
-				jump_cnt++;
-				int jump_to = Jump_to(i, disk[i].range[head_id].first);
-				disk[i].head[head_id] = jump_to;
-				moves[i][head_id] = "j " + to_string(jump_to + 1);
-				pre_move[i][head_id] = 'j';
-				pre_cost[i][head_id] = 0;
-				Lock(i, head_id, true, LOCK_UNITS, LOCK_TIMES); // 被迫跳回来之后应该上锁吗？
-				pre_jump[i][head_id] = timestamp;
-				pre_decide[i][head_id] = false;
+				Jump(i, head_id);
 				continue;
 			}
-	
+
 			while (step) {
 				auto [obj_id, obj_part] = disk[i].d[disk[i].head[head_id]];
 				if (obj_id != -1 && timestamp - objects[obj_id].lock_time > objects[obj_id].lock_last) {
@@ -1654,6 +1997,7 @@ void Move() {
 				// 必须把 read 和 write 割裂开，不然的话 hit 了就得 r
 				
 				if (score > DROP_SCORE) {
+					read_cnt++;
 					read(i, head_id);
 					move += 'r';
 					step -= cost;
@@ -1675,6 +2019,8 @@ void Move() {
 				// 	continue;
 				// }
 				if (decide_continue_read(i, head_id)) {
+					read_white++;
+					read_cnt++;
 					pre_decide[i][head_id] = true;
 					continue_cnt += cost;
 					read(i, head_id);
@@ -1690,7 +2036,7 @@ void Move() {
 					continue;
 				}
 				pre_decide[i][head_id] = false;
-	
+				pass_cnt++;
 				// if (score <= DROP_SCORE) {
 				// 	move += 'p';
 				// 	pre_move[i] = 'p';
@@ -1788,119 +2134,199 @@ void garbage_collection() {
 	for (int i = 0; i < N; i++) {
 		vector<pair<int, int>> exchange;
 		int token = K;
-		// for (int j = 0; j < V - 4; ) {
-		// 	if (!disk[i].flag[j]) {
-		// 		j++;
-		// 		continue;
-		// 	}
-		// 	if (disk[i].d[j].first == -1) {
-		// 		j++;
-		// 		continue;
-		// 	}
-		// 	if (j) {
-		// 		if (disk[i].d[j].first == disk[i].d[j - 1].first) {
-		// 			cerr << "HHHHHHHHHHHHHHHHHHHHHHHHHH" << endl;
-		// 			cerr << disk[i].flag[j - 1] << ' ' << disk[i].flag[j] << endl;
-		// 			cerr << disk[i].d[j - 1].first << " " << disk[i].d[j].first << endl;
-		// 		}
-		// 		assert(disk[i].d[j].first != disk[i].d[j - 1].first);
-		// 	}
-		// 	auto [obj_id, obj_part] = disk[i].d[j];
-		// 	int obj_tag = objects[obj_id].tag;
-		// 	int obj_size = objects[obj_id].size;
-		// 	if (disk[i].color_tag[j] == -1) {
-		// 		j += obj_size;
-		// 		continue;
-		// 	}
-		// 	if (obj_size > token) {
-		// 		j += obj_size;
-		// 		continue;
-		// 	}
-		// 	if (disk[i].color_tag[j] == obj_tag) {
-		// 		j += obj_size;
-		// 		continue;
-		// 	}
+		for (int j = disk[i].use_size - 1; j >= 0; j--) {
+			if (!disk[i].flag[j]) {
+				continue;
+			}
+			if (disk[i].d[j].first == -1) {
+				continue;
+			}
+			if (j) {
+				if (disk[i].d[j].first == disk[i].d[j - 1].first) {
+					cerr << "HHHHHHHHHHHHHHHHHHHHHHHHHH" << endl;
+					cerr << disk[i].flag[j - 1] << ' ' << disk[i].flag[j] << endl;
+					cerr << disk[i].d[j - 1].first << " " << disk[i].d[j].first << endl;
+				}
+				assert(disk[i].d[j].first != disk[i].d[j - 1].first);
+			}
+			auto [obj_id, obj_part] = disk[i].d[j];
+			int obj_tag = objects[obj_id].tag;
+			int obj_size = objects[obj_id].size;
+			if (disk[i].color_tag[j] == -1) {
+				continue;
+			}
+			if (obj_size > token) {
+				continue;
+			}
 
-		// 	int change_to = -1;
-		// 	for (int k = (j + obj_size) % V, cnt = V; cnt--; k = (k + 1) % V) {
-		// 		if (!disk[i].flag[k]) continue;
-		// 		if (disk[i].d[k].first == -1) continue;
-		// 		auto [cur_obj_id, cur_obj_part] = disk[i].d[k];
-		// 		int cur_obj_tag = objects[cur_obj_id].tag;
-		// 		int cur_obj_size = objects[cur_obj_id].size;
-		// 		if (cur_obj_size != obj_size) {
-		// 			k += obj_size - 1;
-		// 			continue;
-		// 		}
-		// 		if (cur_obj_tag == disk[i].color_tag[k]) {
-		// 			k += obj_size - 1;
-		// 			continue;
-		// 		}
-		// 		if (cur_obj_tag == disk[i].color_tag[j]) {
-		// 			change_to = k;
-		// 			break;
-		// 		}
-		// 	}
-		// 	if (change_to == -1) {
-		// 		for (int k = (j + obj_size) % V, cnt = V; cnt--; k = (k + 1) % V) {
-		// 			if (disk[i].d[k].first != -1) continue;
-		// 			bool ok = 1;
-		// 			for (int p = k, cnt = obj_size; cnt--; p = (p + 1) % V) {
-		// 				if (disk[i].d[p].first != -1) {
-		// 					ok = 0;
-		// 					break;
-		// 				}
-		// 			}
-		// 			if (ok) {
-		// 				change_to = k;
-		// 				break;
-		// 			}
-		// 		}
-		// 	}
-		// 	if (change_to == -1) {
-		// 		j += obj_size;
-		// 		continue;
-		// 	}
-		// 	token -= obj_size;
-		// 	for (int p = 0; p < REP_NUM; p++) {
-		// 		if (objects[obj_id].bel[p] == i) {
-		// 			objects[obj_id].unit[p] = change_to;
-		// 			break;
-		// 		}
-		// 	}
-		// 	assert(disk[i].flag[j]);
-		// 	disk[i].flag[change_to] = true;
-		// 	if (disk[i].d[change_to].first != -1) {
-		// 		assert(disk[i].flag[change_to]);
-		// 		disk[i].flag[j] = true;
-		// 		for (int p = 0; p < REP_NUM; p++) {
-		// 			if (objects[disk[i].d[change_to].first].bel[p] == i) {
-		// 				objects[disk[i].d[change_to].first].unit[p] = j;
-		// 				break;
-		// 			}
-		// 		}
-		// 	} else {
-		// 		disk[i].flag[j] = false;
-		// 	}
-		// 	// if (i == 3) {
-		// 	// 	cerr << "####" << j << ' ' << change_to << ' ' << obj_size << ' ' << disk[i].d[change_to].first << endl;
-		// 	// 	for (int k = 0; k < obj_size; k++) {
-		// 	// 		cerr << disk[i].d[j + k].first << ' ';
-		// 	// 	}
-		// 	// 	cerr << endl;
-		// 	// 	for (int k = 0; k < obj_size; k++) {
-		// 	// 		cerr << disk[i].d[change_to + k].first << ' ';
-		// 	// 	}
-		// 	// 	cerr << endl;
-		// 	// }
-		// 	for (int k = 0; k < obj_size; k++) {
-		// 		int a = (j + k) % V, b = (change_to + k) % V;
-		// 		exchange.push_back({a, b});
-		// 		swap(disk[i].d[a], disk[i].d[b]);
-		// 	}
-		// 	j += obj_size;
-		// }
-		// exchange_cnt += exchange.size();
+			int change_to = -1;
+
+			// 第一选择：把前 1/3 的杂色踢出去
+			if (disk[i].color_tag[j] != obj_tag) {
+				for (int k = 0; k < disk[i].use_size; k++) {
+					if (disk[i].color_tag[k] != obj_tag) continue;
+					if (disk[i].d[k].first == -1) continue;
+					if (!disk[i].flag[k]) continue;
+					int cur_obj_id = disk[i].d[k].first;
+					int cur_obj_tag = objects[obj_id].tag;
+					int cur_obj_size = objects[obj_id].size;
+					if (cur_obj_size != obj_size) continue;
+					if (disk[i].color_tag[k] == cur_obj_tag) continue;
+					change_to = k;
+					break;
+				}
+				if (change_to == -1) {
+					for (int k = 0; k + obj_size - 1 < disk[i].use_size; k++) {
+						if (disk[i].color_tag[k] != obj_tag) continue;
+						if (disk[i].d[k].first != -1) continue;
+						bool ok = 1;
+						for (int p = 0; p < obj_size; p++) {
+							if (disk[i].d[k + p].first != -1 || disk[i].color_tag[k + p] != obj_tag) {
+								ok = 0;
+								break;
+							}
+						}
+						if (!ok) continue;
+						change_to = k;
+						break;
+					}		
+				}
+				// 把以后不会热起来的标签直接扔到后面去？
+			}
+			
+			if (change_to == -1) {
+				continue;
+			}
+			token -= obj_size;
+			for (int p = 0; p < REP_NUM; p++) {
+				assert(objects[obj_id].unit[p].size() == 1);
+				if (objects[obj_id].bel[p] == i) {
+					objects[obj_id].unit[p][0] = change_to;
+					break;
+				}
+			}
+			assert(disk[i].flag[j]);
+			disk[i].flag[change_to] = true;
+			if (disk[i].d[change_to].first != -1) {
+				assert(disk[i].flag[change_to]);
+				disk[i].flag[j] = true;
+				for (int p = 0; p < REP_NUM; p++) {
+					assert(objects[disk[i].d[change_to].first].unit[p].size() == 1);
+					if (objects[disk[i].d[change_to].first].bel[p] == i) {
+						objects[disk[i].d[change_to].first].unit[p][0] = j;
+						break;
+					}
+				}
+			} else {
+				disk[i].flag[j] = false;
+			}
+			// if (i == 9) {
+			// 	cerr << "####" << j << ' ' << change_to << ' ' << obj_size << ' ' << disk[i].d[change_to].first << endl;
+			// 	for (int k = 0; k < obj_size; k++) {
+			// 		cerr << disk[i].d[j + k].first << ' ';
+			// 	}
+			// 	cerr << endl;
+			// 	for (int k = 0; k < obj_size; k++) {
+			// 		cerr << disk[i].d[change_to + k].first << ' ';
+			// 	}
+			// 	cerr << endl;
+			// }
+			for (int k = 0; k < obj_size; k++) {
+				int a = (j + k) % V, b = (change_to + k) % V;
+				assert(disk[i].d[b].first == -1);
+				exchange.push_back({a, b});
+				swap(disk[i].d[a], disk[i].d[b]);
+			}
+		}
+		for (int j = disk[i].use_size - 1; j >= 0; j--) {
+			if (!disk[i].flag[j]) {
+				continue;
+			}
+			if (disk[i].d[j].first == -1) {
+				continue;
+			}
+			if (j) {
+				if (disk[i].d[j].first == disk[i].d[j - 1].first) {
+					cerr << "HHHHHHHHHHHHHHHHHHHHHHHHHH" << endl;
+					cerr << disk[i].flag[j - 1] << ' ' << disk[i].flag[j] << endl;
+					cerr << disk[i].d[j - 1].first << " " << disk[i].d[j].first << endl;
+				}
+				assert(disk[i].d[j].first != disk[i].d[j - 1].first);
+			}
+			auto [obj_id, obj_part] = disk[i].d[j];
+			int obj_tag = objects[obj_id].tag;
+			int obj_size = objects[obj_id].size;
+			if (disk[i].color_tag[j] == -1) {
+				continue;
+			}
+			if (obj_size > token) {
+				continue;
+			}
+
+			int change_to = -1;
+
+			// 第二选择：把一个色块内部的东西往色块最前面堆
+			if (change_to == -1) {
+				for (int k = 0; k + obj_size - 1 < j; k++) {
+					if (disk[i].d[k].first != -1) continue;
+					if (disk[i].color_tag[k] != obj_tag) continue;
+					bool ok = 1;
+					for (int p = 0; p < obj_size; p++) {
+						if (disk[i].d[k + p].first != -1 || disk[i].color_tag[k + p] != obj_tag) {
+							ok = 0;
+							break;
+						}
+					}
+					if (!ok) continue;
+					change_to = k;
+					break;
+				}
+			}
+			if (change_to == -1) {
+				continue;
+			}
+			token -= obj_size;
+			for (int p = 0; p < REP_NUM; p++) {
+				assert(objects[obj_id].unit[p].size() == 1);
+				if (objects[obj_id].bel[p] == i) {
+					objects[obj_id].unit[p][0] = change_to;
+					break;
+				}
+			}
+			assert(disk[i].flag[j]);
+			disk[i].flag[change_to] = true;
+			if (disk[i].d[change_to].first != -1) {
+				assert(disk[i].flag[change_to]);
+				disk[i].flag[j] = true;
+				for (int p = 0; p < REP_NUM; p++) {
+					assert(objects[disk[i].d[change_to].first].unit[p].size() == 1);
+					if (objects[disk[i].d[change_to].first].bel[p] == i) {
+						objects[disk[i].d[change_to].first].unit[p][0] = j;
+						break;
+					}
+				}
+			} else {
+				disk[i].flag[j] = false;
+			}
+			// if (i == 9) {
+			// 	cerr << "####" << j << ' ' << change_to << ' ' << obj_size << ' ' << disk[i].d[change_to].first << endl;
+			// 	for (int k = 0; k < obj_size; k++) {
+			// 		cerr << disk[i].d[j + k].first << ' ';
+			// 	}
+			// 	cerr << endl;
+			// 	for (int k = 0; k < obj_size; k++) {
+			// 		cerr << disk[i].d[change_to + k].first << ' ';
+			// 	}
+			// 	cerr << endl;
+			// }
+			for (int k = 0; k < obj_size; k++) {
+				int a = (j + k) % V, b = (change_to + k) % V;
+				assert(disk[i].d[b].first == -1);
+				exchange.push_back({a, b});
+				swap(disk[i].d[a], disk[i].d[b]);
+			}
+		}
+		exchange_cnt += exchange.size();
 		cout << exchange.size() << "\n";
 		for (auto [a, b] : exchange) {
 			cout << a + 1 << ' ' << b + 1 << '\n';

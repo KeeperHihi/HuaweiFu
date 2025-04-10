@@ -456,31 +456,31 @@ struct Disk {
 			shuffle(pos.begin() + 1, pos.end(), rng);
 			
 			
-			for (auto c : color_sequence) {
-				for (auto i : c) {
-					int cnt = (USE_SIZE / (MAX_HEAD_NUM)) * 1. * query_times[i] / tot;
-					int c = cnt;
-					while (cnt-- && idx < USE_SIZE) {
-						color_tag[idx++] = i;
-					}
-					block.push_back({start, c});
-					start += c;
-				}
-			}
-			score.resize(block.size());
-		
-			
-			// for (int j = 1; j <= MAX_TAG; j++) {
-			// 	int i = pos[j];
-			// 	int cnt = (USE_SIZE / (MAX_HEAD_NUM)) * 1. * query_times[i] / tot;
-			// 	int c = cnt;
-			// 	while (cnt-- && idx < USE_SIZE) {
-			// 		color_tag[idx++] = i;
+			// for (auto c : color_sequence) {
+			// 	for (auto i : c) {
+			// 		int cnt = (USE_SIZE / (MAX_HEAD_NUM)) * 1. * query_times[i] / tot;
+			// 		int c = cnt;
+			// 		while (cnt-- && idx < USE_SIZE) {
+			// 			color_tag[idx++] = i;
+			// 		}
+			// 		block.push_back({start, c});
+			// 		start += c;
 			// 	}
-			// 	block.push_back({start, c});
-			// 	start += c;
 			// }
 			// score.resize(block.size());
+		
+			
+			for (int j = 1; j <= MAX_TAG; j++) {
+				int i = pos[j];
+				int cnt = (USE_SIZE / (MAX_HEAD_NUM)) * 1. * query_times[i] / tot;
+				int c = cnt;
+				while (cnt-- && idx < USE_SIZE) {
+					color_tag[idx++] = i;
+				}
+				block.push_back({start, c});
+				start += c;
+			}
+			score.resize(block.size());
 		}
 		return;
 

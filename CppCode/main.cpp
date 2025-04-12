@@ -20,12 +20,12 @@
 using namespace std;
 
 #define DEBUG
-// #define GARBAGE_COLLECTION
+#define GARBAGE_COLLECTION
 // #define SHOW
 #define SHOW_EPOCH (29075)
 
 #ifdef DEBUG
-#define UPDATE_DISK_SCORE_FREQUENCY (10000000)
+#define UPDATE_DISK_SCORE_FREQUENCY (20)
 #define MAX_DISK_SIZE (13157)
 #define BLOCK_NUM (60)
 const int BLOCK_SIZE = MAX_DISK_SIZE / BLOCK_NUM;
@@ -988,10 +988,10 @@ void total_init() {
 	}
 }
 
-void interrupt() {
-	sleep(1);
-	cout << "Hello" << endl;
-}
+// void interrupt() {
+// 	sleep(1);
+// 	cout << "Hello" << endl;
+// }
 
 bool Random_Appear(int p) {
 	return rng() % 100 + 1 <= p;
@@ -1913,12 +1913,12 @@ void Move() {
 		return is_hit;
 	};
 
-	auto Jump = [&](int disk_id, int head_id) -> void {
+	auto Jump = [&](int disk_id, int head_id, int jump_to) -> void {
 		// if (disk_id == 0 && head_id == 0) {
 		// 	cerr << "JUMP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 		// }
 		jump_cnt++;
-		int jump_to = Jump_to(disk_id, disk[disk_id].range[head_id].first);
+		jump_to = Jump_to(disk_id, jump_to);
 		disk[disk_id].head[head_id] = jump_to;
 		moves[disk_id][head_id] = "j " + to_string(jump_to + 1);
 		pre_move[disk_id][head_id] = 'j';
@@ -2023,7 +2023,7 @@ void Move() {
 			// 	float last_score = 0;
 			// 	for (int j = disk[i].head[head_id]; j <= disk[i].range[head_id].second; j++) {
 			// 		last_score += Get_Pos_Score(i, j, timestamp);
-			// 		if (last_score > 10) {
+			// 		if (last_score > 0.1) {
 			// 			bound = 0;
 			// 			break;
 			// 		}
@@ -2053,7 +2053,11 @@ void Move() {
 			
 			// 方案二：每个磁头固定扫描的区域
 			if (!locate_in(disk[i].head[head_id], disk[i].range[head_id])) {
-				Jump(i, head_id);
+				if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0) {
+					Jump(i, head_id, disk[i].max_score_pos[head_id]);
+				} else {
+					Jump(i, head_id, disk[i].range[head_id].first);
+				}
 				continue;
 			}
 
@@ -2499,11 +2503,11 @@ int main() {
 	cin >> T >> M >> N >> V >> G >> K;
 	// assert(V == 16384);
 	// if (G != 340) {
-	// 	cout << "G != 340\n";
+	// 	cout << "G!=340\n";
 	// 	cout.flush();
 	// }
 	// if (K != 40) {
-	// 	cout << "K != 40\n";
+	// 	cout << "K!=40\n";
 	// 	cout.flush();
 	// }
 	for (int i = 0; i < N; i++) {

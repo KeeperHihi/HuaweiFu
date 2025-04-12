@@ -2053,11 +2053,11 @@ void Move() {
 			
 			// 方案二：每个磁头固定扫描的区域
 			if (!locate_in(disk[i].head[head_id], disk[i].range[head_id])) {
-				if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0) {
-					Jump(i, head_id, disk[i].max_score_pos[head_id]);
-				} else {
-					Jump(i, head_id, disk[i].range[head_id].first);
-				}
+				// if (timestamp % UPDATE_DISK_SCORE_FREQUENCY == 0) {
+				// 	Jump(i, head_id, disk[i].max_score_pos[head_id]);
+				// } else {
+				// }
+				Jump(i, head_id, disk[i].range[head_id].first);
 				continue;
 			}
 
